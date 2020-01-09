@@ -1,7 +1,7 @@
 package expr
 
 import (
-	"fmt"
+	"github.com/fagongzi/util/format"
 )
 
 type valueType int
@@ -34,64 +34,102 @@ var (
 
 // Expr expr
 type Expr interface {
-	Exec(interface{}) bool
-}
-
-// VarExpr var expr
-type VarExpr interface {
-	AsString(interface{}) string
-	AsNumber(interface{}) int64
+	Exec(interface{}) (interface{}, error)
 }
 
 // VarExprFactory factory method
-type VarExprFactory func([]byte) (VarExpr, error)
+type VarExprFactory func([]byte, string) (Expr, error)
 
-type calcNode interface {
-	Expr
-	AddCmp(cmp, []byte) error
+type stack struct {
+	nodes []*node
+}
+
+func (s *stack) push(v *node) {
+	s.nodes = append(s.nodes, v)
+}
+
+func (s *stack) append(v *node) {
+	s.current().add(v)
+	s.push(v)
+}
+
+func (s *stack) appendWithOP(fn CalcFunc, v *node) {
+	s.current().appendWithOP(fn, v)
+	s.push(v)
+}
+
+func (s *stack) current() *node {
+	return s.nodes[len(s.nodes)-1]
+}
+
+func (s *stack) pop() Expr {
+	n := len(s.nodes) - 1
+	v := s.nodes[n]
+	s.nodes[n] = nil
+	s.nodes = s.nodes[:n]
+	return v
 }
 
 type node struct {
 	exprs []Expr
-	logic logic
-}
-
-func (n *node) lastExpr() Expr {
-	return n.exprs[len(n.exprs)-1]
+	fns   []CalcFunc
 }
 
 func (n *node) add(expr Expr) {
 	n.exprs = append(n.exprs, expr)
 }
 
-func (n *node) append(logic logic, expr Expr) error {
-	if len(n.exprs) > 1 && n.logic != logic {
-		return fmt.Errorf("and/or can't mixin")
-	}
-
+func (n *node) append(expr Expr) {
 	n.exprs = append(n.exprs, expr)
-	n.logic = logic
-	return nil
 }
 
-func (n *node) Exec(ctx interface{}) bool {
-	if len(n.exprs) == 1 {
-		return n.exprs[0].Exec(ctx)
+func (n *node) appendWithOP(fn CalcFunc, expr Expr) {
+	n.exprs = append(n.exprs, expr)
+	n.fns = append(n.fns, fn)
+}
+
+func (n *node) Exec(ctx interface{}) (interface{}, error) {
+	left, err := n.exprs[0].Exec(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	var result bool
-	for _, expr := range n.exprs {
-		result = expr.Exec(ctx)
-		switch n.logic {
-		case and:
-			if !result {
-				return false
-			}
-		case or:
-			if result {
-				return true
-			}
+	for idx, right := range n.exprs[1:] {
+		left, err = n.fns[idx](left, right, ctx)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return result
+
+	return left, nil
+}
+
+func newConstExpr(value []byte) Expr {
+	strValue := string(value)
+	int64Value, err := format.ParseStrInt64(strValue)
+	if err != nil {
+		return &constString{
+			value: strValue,
+		}
+	}
+
+	return &constInt64{
+		value: int64Value,
+	}
+}
+
+type constString struct {
+	value string
+}
+
+func (expr *constString) Exec(ctx interface{}) (interface{}, error) {
+	return expr.value, nil
+}
+
+type constInt64 struct {
+	value int64
+}
+
+func (expr *constInt64) Exec(ctx interface{}) (interface{}, error) {
+	return expr.value, nil
 }

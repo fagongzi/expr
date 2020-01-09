@@ -20,7 +20,9 @@ func NewScanner(input []byte) Lexer {
 		input: input,
 		bp:    -1,
 		sp:    0,
-		st:    &symbolTable{},
+		st: &symbolTable{
+			tokens: make(map[int]string),
+		},
 	}
 
 	scan.Next()
@@ -53,27 +55,19 @@ func (scan *scanner) Next() byte {
 
 func (scan *scanner) NextToken() {
 	for {
-		scan.skipWhitespaces()
-		e := 0
-		s := scan.bp
-		for {
-			scan.Next()
-			if isWhitespace(scan.ch) || scan.ch == EOI {
-				e = scan.bp
-				break
-			}
-		}
-
-		if e == s && scan.ch == EOI {
+		if scan.ch == EOI {
 			scan.token = TokenEOI
 			scan.scanOffset = 0
 			return
 		}
 
-		token, _ := scan.st.findToken(scan.input[s:e])
+		scan.skipWhitespaces()
+
+		token := scan.findLongestToken()
 		if token > 0 {
 			scan.token = token
-			scan.scanOffset = e - s
+			scan.scanOffset = len(scan.TokenSymbol(token))
+			scan.Next()
 			return
 		}
 
@@ -91,6 +85,10 @@ func (scan *scanner) Token() int {
 
 func (scan *scanner) TokenIndex() int {
 	return scan.bp - 1
+}
+
+func (scan *scanner) TokenSymbol(token int) string {
+	return scan.st.tokens[token]
 }
 
 func (scan *scanner) ScanString() []byte {
@@ -123,6 +121,30 @@ func (scan *scanner) ScanString() []byte {
 
 func (scan *scanner) SkipString() {
 	scan.sp = scan.bp
+}
+
+func (scan *scanner) findLongestToken() int {
+	last := -1
+	pos := -1
+
+	for i := scan.bp; i < scan.len; i++ {
+		token, maybe := scan.st.findToken(scan.input[scan.bp : i+1])
+		if token > 0 {
+			last = token
+			pos = i
+		}
+
+		if !maybe {
+			break
+		}
+	}
+
+	if last > 0 {
+		scan.bp = pos
+		scan.ch = scan.input[pos]
+	}
+
+	return last
 }
 
 func (scan *scanner) skipWhitespaces() {

@@ -31,3 +31,18 @@ func TestNextToken(t *testing.T) {
 	assert.Equal(t, TokenEOI, scan.Token(), "TestNextToken failed")
 	assert.Equal(t, "1", string(scan.ScanString()), "TestNextToken failed")
 }
+
+func TestNextTokenWithGap(t *testing.T) {
+	scan := NewScanner([]byte("1 >==2 "))
+	scan.AddSymbol([]byte(">"), 2)
+	scan.AddSymbol([]byte(">="), 3)
+	scan.AddSymbol([]byte("="), 4)
+
+	scan.NextToken()
+	assert.Equal(t, 3, scan.Token(), "TestNextToken failed")
+	assert.Equal(t, "1", string(scan.ScanString()), "TestNextToken failed")
+
+	scan.NextToken()
+	assert.Equal(t, 4, scan.Token(), "TestNextToken failed")
+	assert.Equal(t, "", string(scan.ScanString()), "TestNextToken failed")
+}

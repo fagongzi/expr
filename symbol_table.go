@@ -1,10 +1,13 @@
 package expr
 
 type symbolTable struct {
-	items []*item
+	tokens map[int]string
+	items  []*item
 }
 
 func (st *symbolTable) addSymbol(symbol []byte, token int) {
+	st.tokens[token] = string(symbol)
+
 	for _, item := range st.items {
 		if item.add(symbol, token) {
 			return
@@ -19,7 +22,7 @@ func (st *symbolTable) findToken(value []byte) (int, bool) {
 	for _, item := range st.items {
 		token, ok := item.find(value)
 		if token > 0 {
-			return token, true
+			return token, ok
 		}
 
 		if ok {
@@ -82,7 +85,7 @@ func (i *item) find(symbol []byte) (int, bool) {
 	}
 
 	if len(symbol) == 1 {
-		return i.token, true
+		return i.token, len(i.items) > 0
 	}
 
 	maybe := false
@@ -90,7 +93,7 @@ func (i *item) find(symbol []byte) (int, bool) {
 	for _, item := range i.items {
 		token, ok := item.find(symbol)
 		if token > 0 {
-			return token, true
+			return token, ok
 		}
 
 		if ok {

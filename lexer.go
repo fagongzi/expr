@@ -21,6 +21,8 @@ type Lexer interface {
 	Token() int
 	// TokenIndex returns the index of the input chars
 	TokenIndex() int
+	// TokenSymbol returns token symbol
+	TokenSymbol(int) string
 	// ScanString returns the chars value between prev token and current token
 	ScanString() []byte
 	// SkipString move the sp to the current token
