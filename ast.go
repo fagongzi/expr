@@ -1,9 +1,5 @@
 package expr
 
-import (
-	"github.com/fagongzi/util/format"
-)
-
 type valueType int
 type cmp int
 type logic int
@@ -102,20 +98,6 @@ func (n *node) Exec(ctx interface{}) (interface{}, error) {
 	}
 
 	return left, nil
-}
-
-func newConstExpr(value []byte) Expr {
-	strValue := string(value)
-	int64Value, err := format.ParseStrInt64(strValue)
-	if err != nil {
-		return &constString{
-			value: strValue,
-		}
-	}
-
-	return &constInt64{
-		value: int64Value,
-	}
 }
 
 type constString struct {

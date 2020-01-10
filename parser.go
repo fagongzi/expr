@@ -2,6 +2,8 @@ package expr
 
 import (
 	"fmt"
+
+	"github.com/fagongzi/util/format"
 )
 
 const (
@@ -10,12 +12,14 @@ const (
 	tokenRightParen = 2 // )
 	tokenVarStart   = 3 // {
 	tokenVarEnd     = 4 // }
+	tokenLiteral    = 5 // "
+	tokenCustom     = 100
 
-	tokenCustom = 100
+	slash                    = '\\'
+	quotation                = '"'
+	quotationConversion byte = 0x00
+	slashConversion     byte = 0x01
 )
-
-// a > 1 && ( b < 2 || c > 3 )
-// (bm1 and bm2) or (bm1 and bm2)
 
 // CalcFunc a calc function returns a result
 type CalcFunc func(interface{}, Expr, interface{}) (interface{}, error)
@@ -37,6 +41,7 @@ type parser struct {
 
 type parserTemplate struct {
 	startToken       int
+	startConversion  byte
 	opsTokens        map[int]string
 	opsFunc          map[int]CalcFunc
 	valueTypes       map[int]string
@@ -80,11 +85,12 @@ func (p *parserTemplate) Parse(input []byte) (Expr, error) {
 }
 
 func (p *parserTemplate) newParser(input []byte) *parser {
-	lexer := NewScanner(input)
+	lexer := NewScanner(conversion(input))
 	lexer.AddSymbol([]byte("("), tokenLeftParen)
 	lexer.AddSymbol([]byte(")"), tokenRightParen)
 	lexer.AddSymbol([]byte("{"), tokenVarStart)
 	lexer.AddSymbol([]byte("}"), tokenVarEnd)
+	lexer.AddSymbol([]byte("\""), tokenLiteral)
 
 	for tokenValue, token := range p.opsTokens {
 		lexer.AddSymbol([]byte(token), tokenValue)
@@ -107,14 +113,16 @@ func (p *parser) parse() (Expr, error) {
 	for {
 		p.lexer.NextToken()
 		token := p.lexer.Token()
-		var err error
 
+		var err error
 		if token == tokenLeftParen {
 			err = p.doLeftParen()
 		} else if token == tokenRightParen {
 			err = p.doRightParen()
 		} else if token == tokenVarStart {
 			err = p.doVarStart()
+		} else if token == tokenLiteral {
+			err = p.doLiteral()
 		} else if token == tokenVarEnd {
 			err = p.doVarEnd()
 		} else if _, ok := p.template.opsTokens[token]; ok {
@@ -134,7 +142,9 @@ func (p *parser) parse() (Expr, error) {
 			return nil, err
 		}
 
-		p.prevToken = token
+		if token != tokenLiteral {
+			p.prevToken = token
+		}
 	}
 }
 
@@ -186,6 +196,25 @@ func (p *parser) doVarStart() error {
 	}
 
 	p.lexer.SkipString()
+	return nil
+}
+
+func (p *parser) doLiteral() error {
+	if _, ok := p.template.opsFunc[p.prevToken]; ok { // a + "
+		for {
+			p.lexer.NextToken()
+			if p.lexer.Token() == TokenEOI {
+				return fmt.Errorf("missing \"")
+			} else if p.lexer.Token() == tokenLiteral {
+				break
+			}
+		}
+	} else {
+		return fmt.Errorf("unexpect token <%s> before %d",
+			p.lexer.TokenSymbol(p.prevToken),
+			p.lexer.TokenIndex())
+	}
+
 	return nil
 }
 
@@ -257,4 +286,69 @@ func (p *parser) doEOI() error {
 	}
 
 	return nil
+}
+
+func newConstExpr(value []byte) Expr {
+	if len(value) >= 2 && value[0] == quotation && value[len(value)-1] == quotation {
+		return &constString{
+			value: string(revertConversion(value[1 : len(value)-1])),
+		}
+	}
+
+	strValue := string(value)
+	int64Value, err := format.ParseStrInt64(strValue)
+	if err != nil {
+		return &constString{
+			value: strValue,
+		}
+	}
+
+	return &constInt64{
+		value: int64Value,
+	}
+}
+
+func revertConversion(src []byte) []byte {
+	var dst []byte
+	for _, v := range src {
+		if v == slashConversion {
+			dst = append(dst, slash)
+		} else if v == quotationConversion {
+			dst = append(dst, quotation)
+		} else {
+			dst = append(dst, v)
+		}
+	}
+
+	return dst
+}
+
+func conversion(src []byte) []byte {
+	// \" -> 0x00
+	// \\ -> \
+	var dst []byte
+	for {
+		if len(src) == 0 {
+			return dst
+		} else if len(src) == 1 {
+			dst = append(dst, src...)
+			return dst
+		}
+
+		if src[0] != slash {
+			dst = append(dst, src[0])
+			src = src[1:]
+			continue
+		}
+
+		if src[0] == slash && src[1] == slash {
+			dst = append(dst, slashConversion)
+		} else if src[0] == slash && src[1] == quotation {
+			dst = append(dst, quotationConversion)
+		} else {
+			dst = append(dst, src[0:2]...)
+		}
+
+		src = src[2:]
+	}
 }

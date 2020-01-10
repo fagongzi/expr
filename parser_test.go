@@ -118,6 +118,21 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, true, value, "TestParser failed")
 }
 
+func TestParserWithVarAndLiteral(t *testing.T) {
+	p := NewParser(testVarFactory)
+	p.AddOP("==", testStrEqual)
+	p.ValueType("num:", "str:")
+	ctx := make(map[string]string)
+	ctx["1"] = `{\"abc}`
+
+	expr, err := p.Parse([]byte(`{str:1}=="{\\\"abc}"`))
+	assert.NoError(t, err, "TestParser failed")
+
+	value, err := expr.Exec(ctx)
+	assert.NoError(t, err, "TestParser failed")
+	assert.Equal(t, true, value, "TestParser failed")
+}
+
 func TestParserWithVar(t *testing.T) {
 	p := NewParser(testVarFactory)
 	p.AddOP("+", testAdd)
@@ -157,6 +172,36 @@ func TestParserWithVar(t *testing.T) {
 	value, err = expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, false, value, "TestParser failed")
+}
+
+func TestConversionAndRevert(t *testing.T) {
+	value := conversion([]byte(`"`))
+	assert.Equal(t, []byte(`"`), value, "TestConversion failed")
+	assert.Equal(t, []byte(`"`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`""`))
+	assert.Equal(t, []byte(`""`), value, "TestConversion failed")
+	assert.Equal(t, []byte(`""`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`\"`))
+	assert.Equal(t, []byte{quotationConversion}, value, "TestConversion failed")
+	assert.Equal(t, []byte(`"`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`b\"a`))
+	assert.Equal(t, []byte{'b', quotationConversion, 'a'}, value, "TestConversion failed")
+	assert.Equal(t, []byte(`b"a`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`\\`))
+	assert.Equal(t, []byte{slashConversion}, value, "TestConversion failed")
+	assert.Equal(t, []byte(`\`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`\\\"`))
+	assert.Equal(t, []byte{slashConversion, quotationConversion}, value, "TestConversion failed")
+	assert.Equal(t, []byte(`\"`), revertConversion(value), "TestConversion failed")
+
+	value = conversion([]byte(`\\\"\`))
+	assert.Equal(t, []byte{slashConversion, quotationConversion, '\\'}, value, "TestConversion failed")
+	assert.Equal(t, []byte(`\"\`), revertConversion(value), "TestConversion failed")
 }
 
 type testMapBasedVarExpr struct {
