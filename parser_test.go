@@ -2,9 +2,10 @@ package expr
 
 import (
 	"fmt"
-	"github.com/fagongzi/util/format"
-	"github.com/stretchr/testify/assert"
+	"regexp"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func testAdd(left interface{}, right Expr, ctx interface{}) (interface{}, error) {
@@ -100,11 +101,30 @@ func testOrLogic(left interface{}, right Expr, ctx interface{}) (interface{}, er
 	return v2.(bool), nil
 }
 
+func testMatch(left interface{}, right Expr, ctx interface{}) (interface{}, error) {
+	if _, ok := left.(string); !ok {
+		return nil, fmt.Errorf("expect string left value but %T", left)
+	}
+
+	rightValue, err := right.Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := rightValue.(*regexp.Regexp); !ok {
+		return nil, fmt.Errorf("expect regexp right value but %T", rightValue)
+	}
+
+	return rightValue.(*regexp.Regexp).MatchString(left.(string)), nil
+}
+
 func TestParser(t *testing.T) {
-	p := NewParser(nil)
-	p.AddOP("+", testAdd)
-	p.AddOP("==", testEqual)
-	p.AddOP("===", testStrEqual)
+	p := NewParser(nil,
+		WithOp("+", testAdd),
+		WithOp("==", testEqual),
+		WithOp("===", testStrEqual),
+		WithVarType("num:", Num),
+		WithVarType("str:", Str))
 
 	expr, err := p.Parse([]byte("((4+(1+2)+3)+5)==15"))
 	assert.NoError(t, err, "TestParser failed")
@@ -119,9 +139,11 @@ func TestParser(t *testing.T) {
 }
 
 func TestParserWithVarAndLiteral(t *testing.T) {
-	p := NewParser(testVarFactory)
-	p.AddOP("==", testStrEqual)
-	p.ValueType("num:", "str:")
+	p := NewParser(testVarFactory,
+		WithOp("==", testStrEqual),
+		WithVarType("num:", Num),
+		WithVarType("str:", Str))
+
 	ctx := make(map[string]string)
 	ctx["1"] = `{\"abc}`
 
@@ -134,13 +156,14 @@ func TestParserWithVarAndLiteral(t *testing.T) {
 }
 
 func TestParserWithVar(t *testing.T) {
-	p := NewParser(testVarFactory)
-	p.AddOP("+", testAdd)
-	p.AddOP("==", testEqual)
-	p.AddOP("===", testStrEqual)
-	p.AddOP("&&", testAndLogic)
-	p.AddOP("||", testOrLogic)
-	p.ValueType("num:", "str:")
+	p := NewParser(testVarFactory,
+		WithOp("+", testAdd),
+		WithOp("==", testEqual),
+		WithOp("===", testStrEqual),
+		WithOp("&&", testAndLogic),
+		WithOp("||", testOrLogic),
+		WithVarType("num:", Num),
+		WithVarType("str:", Str))
 
 	ctx := make(map[string]string)
 	ctx["1"] = "1"
@@ -174,6 +197,23 @@ func TestParserWithVar(t *testing.T) {
 	assert.Equal(t, false, value, "TestParser failed")
 }
 
+func TestParserRegexpWithVar(t *testing.T) {
+	p := NewParser(testVarFactory,
+		WithOp("~", testMatch),
+		WithVarType("num:", Num),
+		WithVarType("str:", Str),
+		WithVarType("regexp:", Regexp))
+
+	ctx := make(map[string]string)
+	ctx["1"] = "////"
+
+	expr, err := p.Parse([]byte("{str:1}~/^[\\/]+$/"))
+	assert.NoError(t, err, "TestParserRegexpWithVar failed")
+	value, err := expr.Exec(ctx)
+	assert.NoError(t, err, "TestParserRegexpWithVar failed")
+	assert.Equal(t, true, value, "TestParserRegexpWithVar failed")
+}
+
 func TestConversionAndRevert(t *testing.T) {
 	value := conversion([]byte(`"`))
 	assert.Equal(t, []byte(`"`), value, "TestConversion failed")
@@ -205,7 +245,7 @@ func TestConversionAndRevert(t *testing.T) {
 }
 
 type testMapBasedVarExpr struct {
-	valueType string
+	valueType VarType
 	attr      string
 }
 
@@ -215,20 +255,10 @@ func (expr *testMapBasedVarExpr) Exec(ctx interface{}) (interface{}, error) {
 		return nil, fmt.Errorf("error ctx %T", ctx)
 	}
 
-	switch expr.valueType {
-	case "str:":
-		return m[expr.attr], nil
-	case "num:":
-		if v, ok := m[expr.attr]; ok {
-			return format.ParseStrInt64(v)
-		}
-		return 0, nil
-	}
-
-	return nil, fmt.Errorf("not support value type")
+	return ValueByType([]byte(m[expr.attr]), expr.valueType)
 }
 
-func testVarFactory(value []byte, valueType string) (Expr, error) {
+func testVarFactory(value []byte, valueType VarType) (Expr, error) {
 	return &testMapBasedVarExpr{
 		valueType: valueType,
 		attr:      string(value),
