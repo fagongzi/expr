@@ -51,15 +51,14 @@ type parser struct {
 }
 
 type parserTemplate struct {
-	opts             *options
-	startToken       int
-	startConversion  byte
-	opsTokens        map[int]string
-	opsFunc          map[int]CalcFunc
-	varTypes         map[int]VarType
-	varTokens        map[int]string
-	defaultValueType VarType
-	factory          VarExprFactory
+	opts            *options
+	startToken      int
+	startConversion byte
+	opsTokens       map[int]string
+	opsFunc         map[int]CalcFunc
+	varTypes        map[int]VarType
+	varTokens       map[int]string
+	factory         VarExprFactory
 }
 
 // NewParser returns a expr parser
@@ -99,10 +98,6 @@ func (p *parserTemplate) addOP(op string, calcFunc CalcFunc) {
 }
 
 func (p *parserTemplate) addVarType(symbol string, varType VarType) {
-	if len(p.varTypes) == 0 {
-		p.defaultValueType = varType
-	}
-
 	p.startToken++
 	p.varTokens[p.startToken] = symbol
 	p.varTypes[p.startToken] = varType
@@ -278,7 +273,7 @@ func (p *parser) doRegexp() error {
 }
 
 func (p *parser) doVarEnd() error {
-	varType := p.template.defaultValueType
+	varType := p.template.opts.defaultType
 	if p.prevToken == tokenVarStart { // {a}
 
 	} else if t, ok := p.template.varTypes[p.prevToken]; ok {

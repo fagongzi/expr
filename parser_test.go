@@ -163,7 +163,8 @@ func TestParserWithVar(t *testing.T) {
 		WithOp("&&", testAndLogic),
 		WithOp("||", testOrLogic),
 		WithVarType("num:", Num),
-		WithVarType("str:", Str))
+		WithVarType("str:", Str),
+		WithDefaultVarType(Num))
 
 	ctx := make(map[string]string)
 	ctx["1"] = "1"
