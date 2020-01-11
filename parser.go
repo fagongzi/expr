@@ -17,12 +17,12 @@ const (
 	tokenRegexp     = 6
 	tokenCustom     = 100
 
-	slash                      = '\\'
-	quotation                  = '"'
-	revertslash                = '/'
-	quotationConversion   byte = 0x00
-	slashConversion       byte = 0x01
-	revertSlashConversion byte = 0x02
+	slash                    = '\\'
+	quotation                = '"'
+	vertical                 = '|'
+	quotationConversion byte = 0x00
+	slashConversion     byte = 0x01
+	verticalConversion  byte = 0x02
 )
 
 var (
@@ -30,8 +30,8 @@ var (
 	symbolRightParen = []byte(")")
 	symbolVarStart   = []byte("{")
 	symbolVarEnd     = []byte("}")
-	symbolLiteral    = []byte("\"")
-	symbolRegexp     = []byte("/")
+	symbolLiteral    = []byte{quotation}
+	symbolRegexp     = []byte{vertical}
 )
 
 // CalcFunc a calc function returns a result
@@ -370,7 +370,7 @@ func newConstExpr(value []byte) (Expr, error) {
 		}, nil
 	}
 
-	if len(value) >= 2 && value[0] == revertslash && value[len(value)-1] == revertslash {
+	if len(value) >= 2 && value[0] == vertical && value[len(value)-1] == vertical {
 		pattern, err := regexp.Compile(string(revertConversion(value[1 : len(value)-1])))
 		if err != nil {
 			return nil, err
@@ -401,8 +401,8 @@ func revertConversion(src []byte) []byte {
 			dst = append(dst, slash)
 		} else if v == quotationConversion {
 			dst = append(dst, quotation)
-		} else if v == revertSlashConversion {
-			dst = append(dst, revertslash)
+		} else if v == verticalConversion {
+			dst = append(dst, vertical)
 		} else {
 			dst = append(dst, v)
 		}
@@ -434,8 +434,8 @@ func conversion(src []byte) []byte {
 			dst = append(dst, slashConversion)
 		} else if src[0] == slash && src[1] == quotation {
 			dst = append(dst, quotationConversion)
-		} else if src[0] == slash && src[1] == revertslash {
-			dst = append(dst, revertSlashConversion)
+		} else if src[0] == slash && src[1] == vertical {
+			dst = append(dst, verticalConversion)
 		} else {
 			dst = append(dst, src[0:2]...)
 		}

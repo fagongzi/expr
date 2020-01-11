@@ -205,9 +205,9 @@ func TestParserRegexpWithVar(t *testing.T) {
 		WithVarType("regexp:", Regexp))
 
 	ctx := make(map[string]string)
-	ctx["1"] = "////"
+	ctx["1"] = "||||"
 
-	expr, err := p.Parse([]byte("{str:1}~/^[\\/]+$/"))
+	expr, err := p.Parse([]byte("{str:1}~|^[\\|]+$|"))
 	assert.NoError(t, err, "TestParserRegexpWithVar failed")
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParserRegexpWithVar failed")
