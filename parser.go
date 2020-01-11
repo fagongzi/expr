@@ -150,12 +150,11 @@ func (p *parser) parse() (Expr, error) {
 			err = p.doRightParen()
 		} else if token == tokenVarStart {
 			err = p.doVarStart()
+			token = tokenVarEnd
 		} else if token == tokenLiteral {
 			err = p.doLiteral()
 		} else if token == tokenRegexp {
 			err = p.doRegexp()
-		} else if token == tokenVarEnd {
-			err = p.doVarEnd()
 		} else if _, ok := p.template.opsTokens[token]; ok {
 			err = p.doOp()
 		} else if _, ok := p.template.varTypes[token]; ok {
@@ -231,6 +230,28 @@ func (p *parser) doVarStart() error {
 	}
 
 	p.lexer.SkipString()
+
+	varType := p.template.opts.defaultType
+	for {
+		p.lexer.NextToken()
+		token := p.lexer.Token()
+		if token == TokenEOI {
+			return fmt.Errorf("missing }")
+		} else if t, ok := p.template.varTypes[token]; ok {
+			varType = t
+			p.lexer.SkipString()
+		} else if p.lexer.Token() == tokenVarEnd {
+			break
+		}
+	}
+
+	varExpr, err := p.template.factory(p.lexer.ScanString(), varType)
+	if err != nil {
+		return err
+	}
+
+	p.stack.current().append(varExpr)
+	p.stack.pop()
 	return nil
 }
 
