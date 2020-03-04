@@ -5,8 +5,62 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/fagongzi/util/format"
 	"github.com/stretchr/testify/assert"
 )
+
+func testIn(left interface{}, right Expr, ctx interface{}) (interface{}, error) {
+	if _, ok := left.(int64); !ok {
+		return nil, fmt.Errorf("%+v is not int64", left)
+	}
+
+	v2, err := right.Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := v2.([]string); !ok {
+		return nil, fmt.Errorf("%+v is not []string", v2)
+	}
+
+	expect := left.(int64)
+	for _, v := range v2.([]string) {
+		vn, err := format.ParseStrInt64(v)
+		if err != nil {
+			return false, err
+		}
+
+		if vn == expect {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func testStrIn(left interface{}, right Expr, ctx interface{}) (interface{}, error) {
+	if _, ok := left.(string); !ok {
+		return nil, fmt.Errorf("%+v is not string", left)
+	}
+
+	v2, err := right.Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := v2.([]string); !ok {
+		return nil, fmt.Errorf("%+v is not []string", v2)
+	}
+
+	expect := left.(string)
+	for _, v := range v2.([]string) {
+		if v == expect {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
 
 func testAdd(left interface{}, right Expr, ctx interface{}) (interface{}, error) {
 	if _, ok := left.(int64); !ok {
@@ -213,6 +267,28 @@ func TestParserRegexpWithVar(t *testing.T) {
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParserRegexpWithVar failed")
 	assert.Equal(t, true, value, "TestParserRegexpWithVar failed")
+}
+
+func TestParserArrayWithVar(t *testing.T) {
+	p := NewParser(testVarFactory,
+		WithOp("in", testStrIn),
+		WithVarType("num:", Num),
+		WithVarType("str:", Str))
+
+	ctx := make(map[string]string)
+	ctx["1"] = "|"
+
+	expr, err := p.Parse([]byte(`{str:1} in [\\1,\|,3]`))
+	assert.NoError(t, err, "TestParserArrayWithVar failed")
+	value, err := expr.Exec(ctx)
+	assert.NoError(t, err, "TestParserArrayWithVar failed")
+	assert.Equal(t, true, value, "TestParserArrayWithVar failed")
+
+	expr, err = p.Parse([]byte("{str:1} in [4,2,3]"))
+	assert.NoError(t, err, "TestParserArrayWithVar failed")
+	value, err = expr.Exec(ctx)
+	assert.NoError(t, err, "TestParserArrayWithVar failed")
+	assert.Equal(t, false, value, "TestParserArrayWithVar failed")
 }
 
 func TestConversionAndRevert(t *testing.T) {
