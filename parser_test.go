@@ -180,14 +180,14 @@ func TestParser(t *testing.T) {
 		WithVarType("num:", Num),
 		WithVarType("str:", Str))
 
-	expr, err := p.Parse([]byte("((4+(1+2)+3)+5)==15"))
+	expr, err := p.Parse([]byte("((4+(1+2)+3)+5)==15"), nil)
 	assert.NoError(t, err, "TestParser failed")
 
 	value, err := expr.Exec(nil)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, true, value, "TestParser failed")
 
-	expr, err = p.Parse([]byte("abcd===abcd"))
+	expr, err = p.Parse([]byte("abcd===abcd"), nil)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, true, value, "TestParser failed")
 }
@@ -201,7 +201,7 @@ func TestParserWithVarAndLiteral(t *testing.T) {
 	ctx := make(map[string]string)
 	ctx["1"] = `{\"abc}`
 
-	expr, err := p.Parse([]byte(`{str:1}=="{\\\"abc}"`))
+	expr, err := p.Parse([]byte(`{str:1}=="{\\\"abc}"`), nil)
 	assert.NoError(t, err, "TestParser failed")
 
 	value, err := expr.Exec(ctx)
@@ -227,25 +227,25 @@ func TestParserWithVar(t *testing.T) {
 	ctx["4"] = "4"
 	ctx["5"] = "5"
 
-	expr, err := p.Parse([]byte("{1}+{2}"))
+	expr, err := p.Parse([]byte("{1}+{2}"), nil)
 	assert.NoError(t, err, "TestParser failed")
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, int64(3), value, "TestParser failed")
 
-	expr, err = p.Parse([]byte("(({4}+({1}+{2})+{3})+{5})==15"))
+	expr, err = p.Parse([]byte("(({4}+({1}+{2})+{3})+{5})==15"), nil)
 	assert.NoError(t, err, "TestParser failed")
 	value, err = expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, true, value, "TestParser failed")
 
-	expr, err = p.Parse([]byte("((({4}+({1}+{2})+{3})+{5})==15)&&(({1}+{2})==3)"))
+	expr, err = p.Parse([]byte("((({4}+({1}+{2})+{3})+{5})==15)&&(({1}+{2})==3)"), nil)
 	assert.NoError(t, err, "TestParser failed")
 	value, err = expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, true, value, "TestParser failed")
 
-	expr, err = p.Parse([]byte("((({4}+({1}+{2})+{3})+{5})==12)||(({1}+{2})==4)"))
+	expr, err = p.Parse([]byte("((({4}+({1}+{2})+{3})+{5})==12)||(({1}+{2})==4)"), nil)
 	assert.NoError(t, err, "TestParser failed")
 	value, err = expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
@@ -262,7 +262,7 @@ func TestParserRegexpWithVar(t *testing.T) {
 	ctx := make(map[string]string)
 	ctx["1"] = "||||"
 
-	expr, err := p.Parse([]byte("{str:1}~|^[\\|]+$|"))
+	expr, err := p.Parse([]byte("{str:1}~|^[\\|]+$|"), nil)
 	assert.NoError(t, err, "TestParserRegexpWithVar failed")
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParserRegexpWithVar failed")
@@ -278,13 +278,13 @@ func TestParserArrayWithVar(t *testing.T) {
 	ctx := make(map[string]string)
 	ctx["1"] = "|"
 
-	expr, err := p.Parse([]byte(`{str:1} in [\\1,\|,3]`))
+	expr, err := p.Parse([]byte(`{str:1} in [\\1,\|,3]`), nil)
 	assert.NoError(t, err, "TestParserArrayWithVar failed")
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParserArrayWithVar failed")
 	assert.Equal(t, true, value, "TestParserArrayWithVar failed")
 
-	expr, err = p.Parse([]byte("{str:1} in [4,2,3]"))
+	expr, err = p.Parse([]byte("{str:1} in [4,2,3]"), nil)
 	assert.NoError(t, err, "TestParserArrayWithVar failed")
 	value, err = expr.Exec(ctx)
 	assert.NoError(t, err, "TestParserArrayWithVar failed")
