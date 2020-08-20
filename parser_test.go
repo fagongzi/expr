@@ -207,6 +207,13 @@ func TestParserWithVarAndLiteral(t *testing.T) {
 	value, err := expr.Exec(ctx)
 	assert.NoError(t, err, "TestParser failed")
 	assert.Equal(t, true, value, "TestParser failed")
+
+	expr, err = p.Parse([]byte(`"{\\\"abc}"=={str:1}`), nil)
+	assert.NoError(t, err, "TestParser failed")
+
+	value, err = expr.Exec(ctx)
+	assert.NoError(t, err, "TestParser failed")
+	assert.Equal(t, true, value, "TestParser failed")
 }
 
 func TestParserWithVar(t *testing.T) {

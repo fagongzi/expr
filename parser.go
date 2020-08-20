@@ -275,7 +275,7 @@ func (p *parser) doVarStart(cb func(Expr)) error {
 }
 
 func (p *parser) doLiteral() error {
-	if _, ok := p.template.opsFunc[p.prevToken]; ok { // a + "
+	if _, ok := p.template.opsFunc[p.prevToken]; ok || p.prevToken == tokenUnknown { // a + "
 		for {
 			p.lexer.NextToken()
 			if p.lexer.Token() == TokenEOI {
